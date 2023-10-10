@@ -29,10 +29,6 @@ client.connect(err => {
     console.log("Connected!")
 })
 
-client.on('error', (err) => {
-    console.error('something bad has happened!', err.stack)
-})
-
 const app = express()
 const port = process.env.PORT || 3000
 
@@ -46,6 +42,18 @@ app.get("/clean-by-age", async (req, res) => {
 
     // Filter and delete all comments that were made on or before 9th October, 2023
     const result = await client.query("DELETE FROM COMMENTS WHERE timestamp < '09-10-2023 00:00:00'")
+
+    if (result.rowCount > 0) {
+        res.json({message: "Cleaned up " + result.rowCount + " rows successfully!"})
+    } else {
+        res.json({message: "Nothing to clean up!"})
+    }
+})
+
+app.get('/conditional', async (req, res) => {
+
+    // Filter and delete all comments that are not linked to any active posts
+    const result = await client.query("DELETE FROM COMMENTS WHERE post_id NOT IN (SELECT post_id from Posts);")
 
     if (result.rowCount > 0) {
         res.json({message: "Cleaned up " + result.rowCount + " rows successfully!"})
@@ -117,17 +125,7 @@ app.get("/emoji", async (req, res) => {
 
 })
 
-app.get('/conditional', async (req, res) => {
 
-    // Filter and delete all comments that are not linked to any active posts
-    const result = await client.query("DELETE FROM COMMENTS WHERE post_id NOT IN (SELECT post_id from Posts);")
-
-    if (result.rowCount > 0) {
-        res.json({message: "Cleaned up " + result.rowCount + " rows successfully!"})
-    } else {
-        res.json({message: "Nothing to clean up!"})
-    }
-})
 
 app.get('/obscene', async (req, res) => {
 
@@ -177,6 +175,7 @@ app.get("/reindex", async (req, res) => {
 app.get('/archive', async (req, res) => {
 
     // Query all comment through a cursor, reading only 10 at a time
+    // You can change the query here to meet your requirements, such as archiving records older than at least a month, or only archiving records from inactive users, etc.
     const queryString = "SELECT * FROM COMMENTS;"
 
     const cursor = client.query(new Cursor(queryString))
@@ -206,6 +205,8 @@ app.get('/archive', async (req, res) => {
     }
 
     await writer.close()
+
+    // Once the parquet file is generated, you can consider deleting the records from the table at this point to free up some space
 
     // Redirect user to the file path to allow them to download the file
     res.redirect("/archive/archive.parquet")
