@@ -218,7 +218,11 @@ app.get('/backup', async (req, res) => {
     const fileName = "database-backup-" + new Date().valueOf() + ".tar";
 
     // Execute the pg_dump command to generate the backup file
-    execute("pg_dump -U " + process.env.DB_USER_NAME + " -d " + process.env.DB_DATABASE_NAME + " -f backup/" + fileName + " -F t",).then(async () => {
+    execute("PGPASSWORD=" + process.env.PGPASS  + " pg_dump -U " + process.env.DB_USER_NAME 
+    + " -d " + process.env.DB_DATABASE_NAME 
+    + " -h " + process.env.DB_HOST
+    + " -p " + process.env.DB_PORT
+    + " -f backup/" + fileName + " -F t").then(async () => {
         console.log("Backup created");
         res.redirect("/backup/" + fileName)
     }).catch(err => {
@@ -247,15 +251,21 @@ app.get('/restore', async (req, res) => {
 
 
     // Restore the database from the chosen backup file
-    execute("pg_restore -cC -d " + process.env.DB_USER_NAME + " " + "backup/" + fileName)
+    execute("PGPASSWORD=" + process.env.PGPASS  + " pg_restore -cC "
+    + "-U " + process.env.DB_USER_NAME
+    + " -h " + process.env.DB_HOST
+    + " -p " + process.env.DB_PORT
+    + " -d postgres backup/" + fileName)
         .then(async ()=> {
             console.log("Restored");
+            res.json({message: "Backup restored"})
         }).catch(err=> {
         console.log(err);
+        res.json({message: "Something went wrong"})
     })
-
-    res.json({message: "Backup restored"})
+    
 })
+
 app.listen(port, () => {
     console.log("Server running at port: " + port);
 });
